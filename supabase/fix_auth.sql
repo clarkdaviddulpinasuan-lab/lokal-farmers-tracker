@@ -1,11 +1,11 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- LokalLink — AUTH REPAIR (paste into Supabase SQL Editor, run once)
 -- Fixes: "Database error querying schema" / "Database error finding user"
--- on login, OTP, and signup for seeded test users.
+-- on login for seeded test users.
 --
--- Does NOT delete profiles or auth.users (they are referenced by
--- delivery_groups and other app tables). Rebuilds identities and resets
--- passwords in place. Safe to re-run.
+-- Does NOT delete profiles or auth.users (FK: delivery_groups etc).
+-- Uses inline VALUES only (no temp tables — Supabase SQL editor friendly).
+-- Safe to re-run.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 begin;
@@ -16,33 +16,16 @@ drop trigger if exists profiles_sync_email on public.profiles;
 drop function if exists public.handle_new_user();
 drop function if exists public.sync_profile_email();
 
--- ── 2. Seeded user definitions ─────────────────────────────────────────────
-create temp table _seed_users (
-  id uuid primary key,
-  email text unique not null,
-  first_name text not null,
-  last_name text not null,
-  role text not null,
-  hub_id text null,
-  member_code text unique not null
-) on commit drop;
-
-insert into _seed_users values
-  ('c0000000-0000-4000-8000-000000000001', 'admin@example.com', 'Admin', 'User', 'Admin', null, 'MB-001'),
-  ('c0000000-0000-4000-8000-000000000002', 'staffa@example.com', 'Clark', 'Suan', 'Staff A', 'hub-a', 'MB-002'),
-  ('c0000000-0000-4000-8000-000000000003', 'staffb@example.com', 'Maria', 'Lopez', 'Staff B', 'hub-b', 'MB-003');
-
--- ── 3. Upsert auth.users in place (keep id so FKs stay valid) ──────────────
--- Align profile id to auth id when a user already exists under a different id.
+-- ── 2. Align profile.id with existing auth.users.id when emails match ──────
 update public.profiles p
 set id = u.id
 from auth.users u
 where p.email = u.email
   and p.id <> u.id
-  and u.email in (select email from _seed_users)
+  and u.email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
   and not exists (select 1 from public.profiles x where x.id = u.id);
 
--- Match auth.users.id to profile id when profile exists but auth row is missing/different.
+-- ── 3. Insert auth.users only when email is missing ────────────────────────
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
   invited_at, confirmation_token, confirmation_sent_at,
@@ -56,10 +39,10 @@ insert into auth.users (
 )
 select
   '00000000-0000-0000-0000-000000000000',
-  s.id,
+  x.id,
   'authenticated',
   'authenticated',
-  s.email,
+  x.email,
   extensions.crypt('lokal123', extensions.gen_salt('bf')),
   now(),
   null, null, null,
@@ -67,59 +50,58 @@ select
   null, null, null, null,
   now(),
   '{"provider": "email", "providers": ["email"]}'::jsonb,
-  jsonb_build_object(
-    'first_name', s.first_name,
-    'last_name', s.last_name,
-    'role', s.role,
-    'hub_id', s.hub_id
-  ),
+  x.meta,
   false, now(), now(),
   null, null, null, null, null,
   0, null, null, null,
   false, false
-from _seed_users s
-where not exists (
-  select 1 from auth.users u where u.id = s.id or u.email = s.email
-);
+from (values
+  ('c0000000-0000-4000-8000-000000000001'::uuid, 'admin@example.com',
+    '{"first_name": "Admin", "last_name": "User", "role": "Admin", "hub_id": null}'::jsonb),
+  ('c0000000-0000-4000-8000-000000000002'::uuid, 'staffa@example.com',
+    '{"first_name": "Clark", "last_name": "Suan", "role": "Staff A", "hub_id": "hub-a"}'::jsonb),
+  ('c0000000-0000-4000-8000-000000000003'::uuid, 'staffb@example.com',
+    '{"first_name": "Maria", "last_name": "Lopez", "role": "Staff B", "hub_id": "hub-b"}'::jsonb)
+) as x(id, email, meta)
+where not exists (select 1 from auth.users u where u.email = x.email);
 
--- If auth row exists under another id for the same email, do not delete it here
--- (FKs). Instead reset password / confirmation on that row and point profile id
--- to it (done above when possible).
+-- ── 4. Reset password / confirmation / metadata on existing rows ───────────
 update auth.users u
 set
-  email = s.email,
+  email = x.email,
   encrypted_password = extensions.crypt('lokal123', extensions.gen_salt('bf')),
   email_confirmed_at = coalesce(u.email_confirmed_at, now()),
   confirmation_token = null,
   confirmation_sent_at = null,
   recovery_token = null,
   banned_until = null,
-  raw_app_meta_data = coalesce(u.raw_app_meta_data, '{"provider": "email", "providers": ["email"]}'::jsonb) || '{"provider": "email", "providers": ["email"]}'::jsonb,
-  raw_user_meta_data = jsonb_build_object(
-    'first_name', s.first_name,
-    'last_name', s.last_name,
-    'role', s.role,
-    'hub_id', s.hub_id
-  ),
+  raw_app_meta_data = '{"provider": "email", "providers": ["email"]}'::jsonb,
+  raw_user_meta_data = x.meta,
   updated_at = now()
-from _seed_users s
-where (u.id = s.id or u.email = s.email);
+from (values
+  ('admin@example.com'::text,
+    '{"first_name": "Admin", "last_name": "User", "role": "Admin", "hub_id": null}'::jsonb),
+  ('staffa@example.com'::text,
+    '{"first_name": "Clark", "last_name": "Suan", "role": "Staff A", "hub_id": "hub-a"}'::jsonb),
+  ('staffb@example.com'::text,
+    '{"first_name": "Maria", "last_name": "Lopez", "role": "Staff B", "hub_id": "hub-b"}'::jsonb)
+) as x(email, meta)
+where u.email = x.email;
 
--- If profile still points at a different id than its auth user, fix profile.id
--- only when that auth user exists and has no other profile row.
+-- ── 5. Point profile.id at auth id when needed (no delete) ─────────────────
 update public.profiles p
 set id = u.id
 from auth.users u
-join _seed_users s on s.email = u.email
-where p.email = s.email
+where p.email = u.email
   and p.id <> u.id
+  and u.email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
   and not exists (select 1 from public.profiles x where x.id = u.id);
 
--- ── 4. Rebuild email identities for seeded users ───────────────────────────
+-- ── 6. Rebuild email identities ────────────────────────────────────────────
 delete from auth.identities i
 using auth.users u
 where i.user_id = u.id
-  and u.email in (select email from _seed_users);
+  and u.email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com');
 
 insert into auth.identities (
   id, user_id, identity_data, provider, provider_id,
@@ -139,14 +121,17 @@ select
   u.id::text,
   now(), now(), now()
 from auth.users u
-where u.email in (select email from _seed_users);
+where u.email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com');
 
--- ── 5. Profiles (upsert only — never delete) ───────────────────────────────
+-- ── 7. Profiles upsert (never delete) ──────────────────────────────────────
 insert into public.profiles (id, member_code, first_name, last_name, email, role, hub_id, status, created_at, updated_at)
-select s.id, s.member_code, s.first_name, s.last_name, s.email, s.role, s.hub_id, 'Active', now(), now()
-from _seed_users s
-where exists (select 1 from auth.users u where u.id = s.id)
-   or exists (select 1 from auth.users u where u.email = s.email)
+select x.id, x.code, x.first_name, x.last_name, x.email, x.role, x.hub_id, 'Active', now(), now()
+from (values
+  ('c0000000-0000-4000-8000-000000000001'::uuid, 'MB-001', 'Admin', 'User', 'admin@example.com', 'Admin', null::text),
+  ('c0000000-0000-4000-8000-000000000002'::uuid, 'MB-002', 'Clark', 'Suan', 'staffa@example.com', 'Staff A', 'hub-a'),
+  ('c0000000-0000-4000-8000-000000000003'::uuid, 'MB-003', 'Maria', 'Lopez', 'staffb@example.com', 'Staff B', 'hub-b')
+) as x(id, code, first_name, last_name, email, role, hub_id)
+where exists (select 1 from auth.users u where u.id = x.id or u.email = x.email)
 on conflict (id) do update set
   member_code = excluded.member_code,
   first_name = excluded.first_name,
@@ -156,17 +141,26 @@ on conflict (id) do update set
   hub_id = excluded.hub_id,
   status = 'Active';
 
--- ── 6. Member code counter past seeded profiles ────────────────────────────
+-- If profile id still differs from auth id for same email, fix id when free
+update public.profiles p
+set id = u.id
+from auth.users u
+where p.email = u.email
+  and u.email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
+  and p.id <> u.id
+  and not exists (select 1 from public.profiles x where x.id = u.id);
+
+-- ── 8. Member code counter ─────────────────────────────────────────────────
 insert into public.code_counters (prefix, next_value) values ('MB', 3)
 on conflict (prefix) do update set next_value = greatest(public.code_counters.next_value, 3);
 
--- ── 7. Lightweight profile creation on signup ──────────────────────────────
+-- ── 9. Lightweight profile creation on signup ──────────────────────────────
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public, extensions, pg_temp
-as $$
+as $fn$
 declare
   v_role text := coalesce(new.raw_user_meta_data ->> 'role', 'Staff B');
   v_hub text := new.raw_user_meta_data ->> 'hub_id';
@@ -205,7 +199,7 @@ exception when others then
   raise warning 'handle_new_user failed: %', SQLERRM;
   return new;
 end;
-$$;
+$fn$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -217,7 +211,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, extensions, pg_temp
-as $$
+as $fn$
 begin
   if new.email is distinct from old.email then
     update auth.users set email = new.email, updated_at = now() where id = new.id;
@@ -225,14 +219,14 @@ begin
   new.updated_at := now();
   return new;
 end;
-$$;
+$fn$;
 
 drop trigger if exists profiles_sync_email on public.profiles;
 create trigger profiles_sync_email
   before update on public.profiles
   for each row execute function public.sync_profile_email();
 
--- ── 8. Reload PostgREST schema cache ───────────────────────────────────────
+-- ── 10. Reload PostgREST schema cache ──────────────────────────────────────
 notify pgrst, 'reload schema';
 
 commit;
