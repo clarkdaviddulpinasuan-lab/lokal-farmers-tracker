@@ -55,24 +55,15 @@ insert into public.farmers (id, farmer_code, first_name, last_name, age, gender,
   ('b0000000-0000-4000-8000-000000000008', 'F-00032', 'Fe', 'Bagayan', 49, 'Female', 'Sitio Dinalupa', 'San Antonio', 'General Luna', '0917 555 0032', 'Active', null, now() - interval '70 days')
 on conflict (id) do nothing;
 
--- ── Test member accounts (profiles created by on_auth_user_created) ────────
--- Remove partial/previous test users first so profiles regenerate cleanly.
+-- ── Test member accounts ───────────────────────────────────────────────────
+-- Never delete profiles/auth.users — delivery_groups and other tables
+-- reference profile ids. Upsert / reset password in place instead.
 
 delete from auth.identities
 where user_id in (
   select id from auth.users
   where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
 );
-
-delete from public.profiles
-where id in (
-  select id from auth.users
-  where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
-)
-or email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com');
-
-delete from auth.users
-where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com');
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

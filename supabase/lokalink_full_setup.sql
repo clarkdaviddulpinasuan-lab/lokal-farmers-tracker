@@ -1,10 +1,47 @@
--- LokalLink — COMBINED SQL (paste this entire file into Supabase SQL Editor)
--- Project: https://brmfqkksujlrckezbxkg.supabase.co
--- Run once as a single query. Safe to re-run (drops/recreates public tables).
--- Contains: 000001_init_schema + 000002_rpc + 000003_realtime + 000004_seed
--- Test logins (password: lokal123): admin@example.com · staffa@example.com · staffb@example.com
--- Choose: Run and enable RLS
--- If login fails with "Database error querying schema", also run supabase/fix_auth.sql
+-- ═══════════════════════════════════════════════════════════════════════════
+-- LokalLink — FULL SUPABASE SETUP (run once in SQL Editor)
+-- Concat of migrations 000001-000004. Re-run uses drop/if-exists patterns.
+-- Never deletes public.profiles / auth.users (FK: delivery_groups etc).
+-- ═══════════════════════════════════════════════════════════════════════════
+
+drop table if exists public.audit_logs cascade;
+drop table if exists public.return_items cascade;
+drop table if exists public.returns cascade;
+drop table if exists public.settlement_lines cascade;
+drop table if exists public.settlements cascade;
+drop table if exists public.sales cascade;
+drop table if exists public.batches cascade;
+drop table if exists public.deliveries cascade;
+drop table if exists public.delivery_groups cascade;
+drop table if exists public.orders cascade;
+drop table if exists public.order_items cascade;
+drop table if exists public.preorders cascade;
+drop table if exists public.allocation_queue cascade;
+drop table if exists public.notifications cascade;
+drop table if exists public.products cascade;
+drop table if exists public.farmers cascade;
+drop table if exists public.code_counters cascade;
+drop table if exists public.profiles cascade;
+drop table if exists public.hubs cascade;
+
+drop function if exists public.handle_new_user() cascade;
+drop function if exists public.sync_profile_email() cascade;
+drop function if exists public.profiles_rules() cascade;
+drop function if exists public.current_profile() cascade;
+drop function if exists public.has_role(text[]) cascade;
+drop function if exists public.require_role(text[]) cascade;
+drop function if exists public.next_code(text, int) cascade;
+drop function if exists public.next_seq(text) cascade;
+drop function if exists public.recompute_batch_status(uuid) cascade;
+drop function if exists public.current_member_name() cascade;
+
+drop trigger if exists on_auth_user_created on auth.users;
+drop trigger if exists profiles_sync_email on public.profiles;
+drop trigger if exists profiles_rules_trg on public.profiles;
+
+-- =======================================================================
+-- 20260923000001_init_schema.sql
+-- =======================================================================
 -- ═══════════════════════════════════════════════════════════════════════════
 -- LokalLink — 000001_init_schema.sql
 -- Schema, constraints, triggers, and Row Level Security.
@@ -602,9 +639,9 @@ create policy audit_select on public.audit_logs
   for select to authenticated
   using (public.has_role(array['Admin']));
 
-
--- SEPARATOR: end of 000001_init_schema
-
+-- =======================================================================
+-- 20260923000002_rpc.sql
+-- =======================================================================
 -- ═══════════════════════════════════════════════════════════════════════════
 -- LokalLink — 000002_rpc.sql
 -- Security-definer RPCs: every multi-table write runs as one transaction with
@@ -1858,9 +1895,9 @@ grant execute on function public.current_profile() to authenticated;
 grant execute on function public.current_member_name() to authenticated;
 grant execute on function public.recompute_batch_status(numeric, numeric, numeric, numeric, text) to authenticated;
 
-
--- SEPARATOR: end of 000002_rpc
-
+-- =======================================================================
+-- 20260923000003_realtime.sql
+-- =======================================================================
 -- ═══════════════════════════════════════════════════════════════════════════
 -- LokalLink — 000003_realtime.sql
 -- Enable Postgres Changes on every table the client refreshes from.
@@ -1895,9 +1932,9 @@ begin
 end
 $$;
 
-
--- SEPARATOR: end of 000003_realtime
-
+-- =======================================================================
+-- 20260923000004_seed_test_data.sql
+-- =======================================================================
 -- ═══════════════════════════════════════════════════════════════════════════
 -- LokalLink — 000004_seed_test_data.sql
 -- TEST DATA ONLY — mirrors the original demo seed so the UI has content
@@ -1955,24 +1992,15 @@ insert into public.farmers (id, farmer_code, first_name, last_name, age, gender,
   ('b0000000-0000-4000-8000-000000000008', 'F-00032', 'Fe', 'Bagayan', 49, 'Female', 'Sitio Dinalupa', 'San Antonio', 'General Luna', '0917 555 0032', 'Active', null, now() - interval '70 days')
 on conflict (id) do nothing;
 
--- ── Test member accounts (profiles created by on_auth_user_created) ────────
--- Remove partial/previous test users first so profiles regenerate cleanly.
+-- ── Test member accounts ───────────────────────────────────────────────────
+-- Never delete profiles/auth.users — delivery_groups and other tables
+-- reference profile ids. Upsert / reset password in place instead.
 
 delete from auth.identities
 where user_id in (
   select id from auth.users
   where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
 );
-
-delete from public.profiles
-where id in (
-  select id from auth.users
-  where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
-)
-or email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com');
-
-delete from auth.users
-where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com');
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
