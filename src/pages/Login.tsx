@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff, Loader2, Check, Star } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Check, Star } from 'lucide-react'
 import { login } from '../lib/store'
 
 export default function Login() {
@@ -75,7 +75,6 @@ export default function Login() {
             <div className="login-field">
               <label htmlFor="login-email">Email</label>
               <div className="login-input-wrap">
-                <Mail size={18} className="login-input-icon" />
                 <input
                   id="login-email"
                   type="email"
@@ -90,7 +89,6 @@ export default function Login() {
             <div className="login-field">
               <label htmlFor="login-password">Password</label>
               <div className="login-input-wrap">
-                <Lock size={18} className="login-input-icon" />
                 <input
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}

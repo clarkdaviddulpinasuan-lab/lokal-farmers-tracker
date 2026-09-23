@@ -1049,31 +1049,16 @@ textarea:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(132,95,
 .login-field { display: flex; flex-direction: column; gap: 6px; }
 .login-field label { font-size: 13px; font-weight: 600; color: var(--ink); }
 .login-input-wrap { position: relative; display: flex; align-items: center; }
-.login-input-icon {
-  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-  color: var(--faint); pointer-events: none; display: flex; z-index: 1;
-  transition: opacity 120ms ease;
-}
 .login-input-wrap input {
-  width: 100%; padding: 11px 14px 11px 52px;
+  width: 100%; padding: 11px 14px;
   border: 1px solid var(--border); border-radius: var(--r-md);
   font-size: 14px; background: var(--surface);
   color: var(--ink); outline: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease, padding-left 120ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 .login-input-wrap input::placeholder { color: var(--faint); }
 .login-input-wrap input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(132,95,176,.1); }
-/* Hide leading icon and collapse its gutter once the user types */
-.login-input-wrap:has(input:not(:placeholder-shown)) .login-input-icon {
-  opacity: 0;
-  visibility: hidden;
-}
-.login-input-wrap:has(input:not(:placeholder-shown)) input {
-  padding-left: 14px;
-}
-.login-input-wrap:has(input:not(:placeholder-shown)) input:focus {
-  padding-left: 14px;
-}
+.login-input-wrap:has(.login-eye-btn) input { padding-right: 44px; }
 .login-eye-btn {
   position: absolute; right: 8px;
   display: grid; place-items: center;
