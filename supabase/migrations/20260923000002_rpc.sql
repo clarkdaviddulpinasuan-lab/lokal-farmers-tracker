@@ -1187,9 +1187,9 @@ begin
     btrim(p_email),
     extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
-    null, null, null,
-    null, null,
-    null, null, null, null,
+    null, '',
+    '', now(),
+    '', '', '', '',
     now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     jsonb_build_object(
@@ -1199,7 +1199,7 @@ begin
       'hub_id', p_hub_id
     ),
     false, now(), now(),
-    null, null, null, null, null,
+    null, null, '', '', null,
     0, null, null, null,
     false, false
   );

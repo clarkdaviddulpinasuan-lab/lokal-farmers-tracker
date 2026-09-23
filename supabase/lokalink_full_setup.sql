@@ -3,6 +3,7 @@
 -- Concat of migrations 000001-000005. Re-run uses drop/if-exists patterns.
 -- Never deletes public.profiles / auth.users (FK: delivery_groups etc).
 -- Create first Admin on the login page (needs_setup / create_first_admin).
+-- auth.users token columns use '' (empty string) so password grant works.
 -- ═══════════════════════════════════════════════════════════════════════════
 -- ────────────────────────────────────────────────────────────────────────
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -1791,9 +1792,9 @@ begin
     btrim(p_email),
     extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
-    null, null, null,
-    null, null,
-    null, null, null, null,
+    null, '',
+    '', now(),
+    '', '', '', '',
     now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     jsonb_build_object(
@@ -1803,7 +1804,7 @@ begin
       'hub_id', p_hub_id
     ),
     false, now(), now(),
-    null, null, null, null, null,
+    null, null, '', '', null,
     0, null, null, null,
     false, false
   );
@@ -2031,9 +2032,9 @@ begin
     btrim(p_email),
     extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
-    null, null, null,
-    null, null,
-    null, null, null, null,
+    null, '',
+    '', now(),
+    '', '', '', '',
     now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     jsonb_build_object(
@@ -2043,7 +2044,7 @@ begin
       'hub_id', null
     ),
     false, now(), now(),
-    null, null, null, null, null,
+    null, null, '', '', null,
     0, null, null, null,
     false, false
   );

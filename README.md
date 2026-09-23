@@ -29,8 +29,9 @@ Scripts: `npm run dev` · `npm run build` · `npm run lint` · `npm run preview`
    (this concatenates migrations `000001`–`000005`: schema/RLS, RPCs, realtime, seed, bootstrap).
 3. Run once as a single query. When prompted, choose **Run and enable RLS**.  
    Safe to re-run: init drops/recreates `public` tables first.
-4. Existing project with the old demo members? Run  
-   [`supabase/remove_demo_members.sql`](supabase/remove_demo_members.sql) once (deletes those three accounts + their demo rows, installs bootstrap).
+4. Existing project with the old demo members / ops data? Run  
+   [`supabase/reset_demo_data.sql`](supabase/reset_demo_data.sql) once  
+   (fixes auth NULL tokens → "Database error querying schema", deletes demo members + deliveries/batches/sales/orders, keeps hubs/products/farmers/preorders, reinstalls bootstrap).
 5. Copy project URL + publishable key into `.env`:
 
 ```bash
