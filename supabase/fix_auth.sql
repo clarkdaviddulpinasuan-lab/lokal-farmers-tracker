@@ -159,6 +159,27 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Restore profile → auth.users email sync (dropped in step 1)
+create or replace function public.sync_profile_email()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  if new.email is distinct from old.email then
+    update auth.users set email = new.email, updated_at = now() where id = new.id;
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_sync_email on public.profiles;
+create trigger profiles_sync_email
+  before update on public.profiles
+  for each row execute function public.sync_profile_email();
+
 -- ── 7. Reload PostgREST schema cache ───────────────────────────────────────
 notify pgrst, 'reload schema';
 
