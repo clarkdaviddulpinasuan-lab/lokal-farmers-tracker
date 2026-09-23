@@ -18,7 +18,7 @@ insert into public.code_counters (prefix, next_value) values
   ('RET', 1),
   ('ST', 184),
   ('F', 127),
-  ('MB', 0),
+  ('MB', 3),
   ('KL', 492),
   ('RTN', 0)
 on conflict (prefix) do nothing;
@@ -76,7 +76,14 @@ where email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  invited_at, confirmation_token, confirmation_sent_at,
+  recovery_token, recovery_sent_at,
+  email_change_token_new, email_change_token_current, email_change, email_change_sent_at,
+  last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
+  is_super_admin, created_at, updated_at,
+  phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at,
+  email_change_confirm_status, banned_until, reauthentication_token, reauthentication_sent_at,
+  is_sso_user, is_anonymous
 )
 select
   '00000000-0000-0000-0000-000000000000',
@@ -86,10 +93,16 @@ select
   x.email,
   extensions.crypt('lokal123', extensions.gen_salt('bf')),
   now(),
+  null, null, null,
+  null, null,
+  null, null, null, null,
+  now(),
   '{"provider": "email", "providers": ["email"]}'::jsonb,
   x.meta,
-  now(),
-  now()
+  false, now(), now(),
+  null, null, null, null, null,
+  0, null, null, null,
+  false, false
 from (values
   ('c0000000-0000-4000-8000-000000000001'::uuid, 'admin@example.com',
     '{"first_name": "Admin", "last_name": "User", "role": "Admin", "hub_id": null}'::jsonb),
@@ -100,16 +113,38 @@ from (values
 ) as x(id, email, meta)
 where not exists (select 1 from auth.users u where u.email = x.email);
 
-insert into auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+insert into auth.identities (
+  id, user_id, identity_data, provider, provider_id,
+  last_sign_in_at, created_at, updated_at
+)
 select
   gen_random_uuid(), u.id,
-  jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true),
+  jsonb_build_object(
+    'sub', u.id::text,
+    'email', u.email,
+    'email_verified', true,
+    'provider', 'email',
+    'providers', array['email']::text[]
+  ),
   'email', u.id::text, now(), now(), now()
 from auth.users u
 where u.email in ('admin@example.com', 'staffa@example.com', 'staffb@example.com')
   and not exists (
     select 1 from auth.identities i where i.user_id = u.id and i.provider = 'email'
   );
+
+-- Profiles (auth trigger may create them; this fills any gap without member_code races)
+insert into public.profiles (id, member_code, first_name, last_name, email, role, hub_id, status, created_at, updated_at)
+select x.id, x.code, x.first_name, x.last_name, x.email, x.role, x.hub_id, 'Active', now(), now()
+from (values
+  ('c0000000-0000-4000-8000-000000000001'::uuid, 'MB-001', 'Admin', 'User', 'admin@example.com', 'Admin', null::text),
+  ('c0000000-0000-4000-8000-000000000002'::uuid, 'MB-002', 'Clark', 'Suan', 'staffa@example.com', 'Staff A', 'hub-a'),
+  ('c0000000-0000-4000-8000-000000000003'::uuid, 'MB-003', 'Maria', 'Lopez', 'staffb@example.com', 'Staff B', 'hub-b')
+) as x(id, code, first_name, last_name, email, role, hub_id)
+where not exists (select 1 from public.profiles p where p.id = x.id)
+on conflict (id) do nothing;
+
+notify pgrst, 'reload schema';
 
 -- ── Delivery groups ─────────────────────────────────────────────────────────
 -- GRP-001..003 Received · GRP-004 On the Way (Staff B can receive)

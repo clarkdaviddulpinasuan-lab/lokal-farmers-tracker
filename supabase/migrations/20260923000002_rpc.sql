@@ -1171,7 +1171,14 @@ begin
 
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+    invited_at, confirmation_token, confirmation_sent_at,
+    recovery_token, recovery_sent_at,
+    email_change_token_new, email_change_token_current, email_change, email_change_sent_at,
+    last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
+    is_super_admin, created_at, updated_at,
+    phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at,
+    email_change_confirm_status, banned_until, reauthentication_token, reauthentication_sent_at,
+    is_sso_user, is_anonymous
   ) values (
     '00000000-0000-0000-0000-000000000000',
     v_id,
@@ -1180,6 +1187,10 @@ begin
     btrim(p_email),
     extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
+    null, null, null,
+    null, null,
+    null, null, null, null,
+    now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     jsonb_build_object(
       'first_name', btrim(p_first_name),
@@ -1187,21 +1198,28 @@ begin
       'role', p_role,
       'hub_id', p_hub_id
     ),
-    now(),
-    now()
+    false, now(), now(),
+    null, null, null, null, null,
+    0, null, null, null,
+    false, false
   );
 
   insert into auth.identities (
-    id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+    id, user_id, identity_data, provider, provider_id,
+    last_sign_in_at, created_at, updated_at
   ) values (
     gen_random_uuid(),
     v_id,
-    jsonb_build_object('sub', v_id::text, 'email', btrim(p_email), 'email_verified', true),
+    jsonb_build_object(
+      'sub', v_id::text,
+      'email', btrim(p_email),
+      'email_verified', true,
+      'provider', 'email',
+      'providers', array['email']::text[]
+    ),
     'email',
     v_id::text,
-    now(),
-    now(),
-    now()
+    now(), now(), now()
   );
 
   perform public.write_audit(

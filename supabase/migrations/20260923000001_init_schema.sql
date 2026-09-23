@@ -410,8 +410,11 @@ begin
   if v_role = 'Admin' then
     v_hub := null;
   end if;
-  if v_role in ('Staff A', 'Staff B') and v_hub is null then
-    raise exception 'Staff members must be assigned to a hub.';
+  if v_role in ('Staff A', 'Staff B') and (v_hub is null or v_hub = '') then
+    v_hub := 'hub-a';
+  end if;
+  if v_hub is not null and not exists (select 1 from public.hubs where id = v_hub) then
+    select id into v_hub from public.hubs order by id limit 1;
   end if;
 
   insert into public.profiles (id, member_code, first_name, last_name, email, role, hub_id, status)
@@ -424,7 +427,11 @@ begin
     v_role,
     v_hub,
     'Active'
-  );
+  )
+  on conflict (id) do nothing;
+  return new;
+exception when others then
+  raise warning 'handle_new_user failed: %', SQLERRM;
   return new;
 end
 $$;
