@@ -26,10 +26,12 @@ Scripts: `npm run dev` · `npm run build` · `npm run lint` · `npm run preview`
 1. Create a Supabase project (or use an existing one).
 2. Open **SQL Editor** and paste the entire contents of  
    [`supabase/lokalink_full_setup.sql`](supabase/lokalink_full_setup.sql)  
-   (this concatenates migrations `000001`–`000004`: schema/RLS, RPCs, realtime, seed).
+   (this concatenates migrations `000001`–`000005`: schema/RLS, RPCs, realtime, seed, bootstrap).
 3. Run once as a single query. When prompted, choose **Run and enable RLS**.  
    Safe to re-run: init drops/recreates `public` tables first.
-4. Copy project URL + publishable key into `.env`:
+4. Existing project with the old demo members? Run  
+   [`supabase/remove_demo_members.sql`](supabase/remove_demo_members.sql) once (deletes those three accounts + their demo rows, installs bootstrap).
+5. Copy project URL + publishable key into `.env`:
 
 ```bash
 VITE_SUPABASE_URL=https://your-ref.supabase.co
@@ -45,19 +47,14 @@ Individual migrations live under [`supabase/migrations/`](supabase/migrations/):
 | `20260923000001_init_schema.sql` | Tables, constraints, triggers, RLS |
 | `20260923000002_rpc.sql` | All write RPCs (deliveries, sales, orders, settlements, …) |
 | `20260923000003_realtime.sql` | Realtime publication |
-| `20260923000004_seed_test_data.sql` | Test users, demo data, code counters |
+| `20260923000004_seed_test_data.sql` | Hubs, products, farmers, preorders, counters (no members) |
+| `20260923000005_bootstrap.sql` | `needs_setup()` / `create_first_admin()` |
 
-After editing any migration, regenerate the combined file (header + four migrations with separators) so the SQL Editor copy stays in sync.
+After editing any migration, regenerate the combined file (header + five migrations with separators) so the SQL Editor copy stays in sync.
 
-## Roles & test logins
+## First Admin & members
 
-Password for all demo users: **`lokal123`**
-
-| Email | Role | Hub |
-| --- | --- | --- |
-| `admin@example.com` | Admin | All |
-| `staffa@example.com` | Staff A | Hub A (outbound / settlements) |
-| `staffb@example.com` | Staff B | Hub B (inbound / sales / orders) |
+No demo members are seeded. On first visit the login page detects an empty `profiles` table (`needs_setup()`) and shows **Create first Admin**. That account then adds Staff A / Staff B (and more) from **Members**.
 
 RLS gates every table by profile role/hub; writes go through `SECURITY DEFINER` RPCs that call `require_role(...)`.
 

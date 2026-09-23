@@ -9,7 +9,7 @@ function AddEditModal({ open, onClose, member, hubs }: { open: boolean; onClose:
     firstName: member?.firstName ?? '',
     lastName: member?.lastName ?? '',
     email: member?.email ?? '',
-    password: member?.password ?? 'lokal123',
+    password: member?.password ?? '',
     role: (member?.role ?? 'Staff A') as Role,
     hubId: member?.hubId ?? '',
   })
@@ -56,7 +56,7 @@ function AddEditModal({ open, onClose, member, hubs }: { open: boolean; onClose:
             <label>Last name<input value={form.lastName} onChange={(e) => set('lastName', e.target.value)} required /></label>
           </div>
           <label>Email<input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required /></label>
-          {!member && <label>Password<input type="text" value={form.password} onChange={(e) => set('password', e.target.value)} required /></label>}
+          {!member && <label>Password<input type="password" placeholder="At least 8 characters" value={form.password} onChange={(e) => set('password', e.target.value)} required minLength={8} /></label>}
           <label>Role
             <select value={form.role} onChange={(e) => set('role', e.target.value as Role)}>
               <option value="Admin">Admin</option>

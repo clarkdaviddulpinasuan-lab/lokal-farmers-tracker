@@ -27,11 +27,7 @@ const hubs: Hub[] = [
   { id: 'hub-b', hubCode: 'HB-002', name: 'Hub B', municipality: 'Santa Cruz', status: 'Active', createdAt: daysAgo(300, 8) },
 ]
 
-const members: Member[] = [
-  { id: 'm-admin', memberCode: 'MB-001', firstName: 'Admin', lastName: 'User', email: 'admin@example.com', password: 'lokal123', role: 'Admin', hubId: null, status: 'Active', createdAt: daysAgo(300, 8), updatedAt: daysAgo(300, 8) },
-  { id: 'm-staffa', memberCode: 'MB-002', firstName: 'Clark', lastName: 'Suan', email: 'staffa@example.com', password: 'lokal123', role: 'Staff A', hubId: 'hub-a', status: 'Active', createdAt: daysAgo(290, 8), updatedAt: daysAgo(290, 8) },
-  { id: 'm-staffb', memberCode: 'MB-003', firstName: 'Maria', lastName: 'Lopez', email: 'staffb@example.com', password: 'lokal123', role: 'Staff B', hubId: 'hub-b', status: 'Active', createdAt: daysAgo(290, 8), updatedAt: daysAgo(290, 8) },
-]
+const members: Member[] = []
 
 const deliveries: Delivery[] = [
   { id: 'd-01', deliveryCode: 'DLV-00130', farmerId: 'f-juan', deliveryDate: daysAgo(5, 8, 45), collectionLocation: 'San Isidro pickup point', receivedBy: 'Maria Lopez', status: 'Received', originHubId: 'hub-a', openedBy: 'm-staffa', groupId: 'dg-01' },

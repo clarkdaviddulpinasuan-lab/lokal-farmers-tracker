@@ -414,6 +414,31 @@ export async function login(email: string, password: string): Promise<Member> {
   return member
 }
 
+export async function needsSetup(): Promise<boolean> {
+  if (!isSupabaseEnabled || !supabase) return false
+  try {
+    const data = await rpc('needs_setup', {})
+    return Boolean(data)
+  } catch {
+    return false
+  }
+}
+
+export async function createFirstAdmin(input: {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+}): Promise<Member> {
+  await rpc('create_first_admin', {
+    p_email: input.email,
+    p_password: input.password,
+    p_first_name: input.firstName,
+    p_last_name: input.lastName,
+  })
+  return await login(input.email, input.password)
+}
+
 export async function logout(): Promise<void> {
   if (isSupabaseEnabled && supabase) {
     await supabase.auth.signOut()
