@@ -1098,19 +1098,6 @@ textarea:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(132,95,
 .login-divider { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 13px; margin: 4px 0; }
 .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-/* Login Google button */
-.login-google-btn {
-  width: 100%; padding: 11px 24px;
-  border: 1px solid var(--border); border-radius: var(--r-md);
-  background: var(--surface); color: var(--ink);
-  font-size: 14px; font-weight: 600;
-  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease;
-}
-.login-google-btn:hover { background: var(--beige-soft); border-color: var(--faint); }
-.login-google-btn:active { background: var(--border-light); }
-
 /* Login footer */
 .login-footer { text-align: center; font-size: 13px; color: var(--muted); margin-top: 4px; }
 .login-signup-link { border: none; background: none; color: var(--purple-dark); font-size: 13px; font-weight: 600; padding: 0; cursor: pointer; }
