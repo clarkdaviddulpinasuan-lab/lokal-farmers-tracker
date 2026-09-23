@@ -1116,6 +1116,41 @@ textarea:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(132,95,
 .login-signup-link { border: none; background: none; color: var(--purple-dark); font-size: 13px; font-weight: 600; padding: 0; cursor: pointer; }
 .login-signup-link:hover { text-decoration: underline; }
 
+.login-mode-switch {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 14px;
+}
+.login-mode-switch button {
+  border: none;
+  background: none;
+  color: var(--purple-dark);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+.login-mode-switch button:hover { text-decoration: underline; }
+
+.login-notice {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  background: #eef6ee;
+  border: 1px solid #cfe3cf;
+  border-radius: var(--r-sm);
+  color: #2d5a2d;
+}
+.login-notice--warn {
+  background: #fff6e8;
+  border-color: #f0d9a8;
+  color: #7a5a1a;
+}
+
 /* Login right panel */
 .login-right {
   display: flex; align-items: center; justify-content: center;

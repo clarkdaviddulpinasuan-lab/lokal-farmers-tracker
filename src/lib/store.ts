@@ -414,15 +414,19 @@ export async function login(email: string, password: string): Promise<Member> {
   return member
 }
 
-export async function needsSetup(): Promise<boolean> {
+/** null = probe failed (RPC missing / network); false = not needed; true = empty profiles */
+export async function needsSetup(): Promise<boolean | null> {
   if (!isSupabaseEnabled || !supabase) return false
   try {
     const data = await rpc('needs_setup', {})
     return Boolean(data)
   } catch {
-    return false
+    return null
   }
 }
+
+export const INVITE_ONLY_MESSAGE =
+  'Registration is invite-only. Ask your Admin to add you from Members, then sign in with your email and password.'
 
 export async function createFirstAdmin(input: {
   email: string
@@ -437,6 +441,23 @@ export async function createFirstAdmin(input: {
     p_last_name: input.lastName,
   })
   return await login(input.email, input.password)
+}
+
+/** Public create: first Admin only while profiles is empty; otherwise invite-only. */
+export async function createAccount(input: {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+}): Promise<Member> {
+  const needed = await needsSetup()
+  if (needed === null) {
+    throw new Error('Could not check account setup. Run supabase/reset_demo_data.sql (or lokalink_full_setup.sql), then reload.')
+  }
+  if (!needed) {
+    throw new Error(INVITE_ONLY_MESSAGE)
+  }
+  return await createFirstAdmin(input)
 }
 
 export async function logout(): Promise<void> {

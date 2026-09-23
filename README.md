@@ -55,7 +55,9 @@ After editing any migration, regenerate the combined file (header + five migrati
 
 ## First Admin & members
 
-No demo members are seeded. On first visit the login page detects an empty `profiles` table (`needs_setup()`) and shows **Create first Admin**. That account then adds Staff A / Staff B (and more) from **Members**.
+No demo members are seeded. On first visit the login page detects an empty `profiles` table (`needs_setup()`) and shows **Create first Admin** (also via the **Create an account** link).
+
+After an Admin exists, **Create an account** is **invite-only**: it shows a message to ask the Admin to add you from **Members**, then sign in. There is no open public Staff signup.
 
 RLS gates every table by profile role/hub; writes go through `SECURITY DEFINER` RPCs that call `require_role(...)`.
 

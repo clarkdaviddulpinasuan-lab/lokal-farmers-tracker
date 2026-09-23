@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Loader2, Check, Star } from 'lucide-react'
-import { createFirstAdmin, login, needsSetup } from '../lib/store'
+import { createAccount, login, needsSetup, INVITE_ONLY_MESSAGE } from '../lib/store'
+
+type LoginView = 'login' | 'create'
+type SetupProbe = 'checking' | 'open' | 'invite' | 'error'
 
 export default function Login() {
   const navigate = useNavigate()
-  const [setupMode, setSetupMode] = useState(false)
-  const [setupChecked, setSetupChecked] = useState(false)
+  const [view, setView] = useState<LoginView>('login')
+  const [probe, setProbe] = useState<SetupProbe>('checking')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -20,13 +23,16 @@ export default function Login() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      try {
-        const needed = await needsSetup()
-        if (!cancelled && needed) setSetupMode(true)
-      } catch {
-        // leave login form if probe fails
-      } finally {
-        if (!cancelled) setSetupChecked(true)
+      setProbe('checking')
+      const needed = await needsSetup()
+      if (cancelled) return
+      if (needed === true) {
+        setProbe('open')
+        setView('create')
+      } else if (needed === null) {
+        setProbe('error')
+      } else {
+        setProbe('invite')
       }
     })()
     return () => {
@@ -34,22 +40,39 @@ export default function Login() {
     }
   }, [])
 
+  function showCreate() {
+    setError('')
+    setView('create')
+    void (async () => {
+      setProbe('checking')
+      const needed = await needsSetup()
+      if (needed === true) setProbe('open')
+      else if (needed === null) setProbe('error')
+      else setProbe('invite')
+    })()
+  }
+
+  function showLogin() {
+    setError('')
+    setView('login')
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      if (setupMode) {
+      if (view === 'create') {
         if (password !== confirmPassword) {
           throw new Error('Passwords do not match.')
         }
-        await createFirstAdmin({ email, password, firstName, lastName })
+        await createAccount({ email, password, firstName, lastName })
       } else {
         await login(email, password)
       }
       navigate('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : setupMode ? 'Could not create admin account.' : 'Login failed.')
+      setError(err instanceof Error ? err.message : view === 'create' ? 'Could not create account.' : 'Login failed.')
     } finally {
       setLoading(false)
     }
@@ -64,6 +87,9 @@ export default function Login() {
     { text: 'Automated market pricing and settlement reports' },
     { text: 'Role-based access for Admin, Staff A, and Staff B' },
   ]
+
+  const createDisabled = loading || probe === 'checking' || probe === 'invite' || probe === 'error'
+  const isSetupCreate = view === 'create' && probe === 'open'
 
   return (
     <div className="login-split">
@@ -83,132 +109,166 @@ export default function Login() {
           </div>
 
           <div className="login-header">
-            <h1>{setupMode ? 'Create first Admin' : 'Log in to your account'}</h1>
+            <h1>
+              {view === 'create'
+                ? isSetupCreate
+                  ? 'Create first Admin'
+                  : 'Create an account'
+                : 'Log in to your account'}
+            </h1>
             <p>
-              {setupMode
-                ? 'No members yet. Create the Admin account to start adding staff.'
+              {view === 'create'
+                ? isSetupCreate
+                  ? 'No members yet. Create the Admin account to start adding staff.'
+                  : 'Set up your name, email, and password.'
                 : 'Welcome back! Please enter your details.'}
             </p>
           </div>
 
           <form onSubmit={submit} className="login-form">
-            {setupMode && (
+            {probe === 'error' && (
+              <p className="login-notice login-notice--warn">
+                Could not check setup. Run supabase/reset_demo_data.sql (or lokalink_full_setup.sql), then reload.
+              </p>
+            )}
+
+            {view === 'create' && probe === 'invite' && (
+              <p className="login-notice">{INVITE_ONLY_MESSAGE}</p>
+            )}
+
+            {view === 'create' && probe === 'open' && (
+              <div className="modal-row">
+                <div className="login-field">
+                  <label htmlFor="login-first">First name</label>
+                  <div className="login-input-wrap">
+                    <input
+                      id="login-first"
+                      type="text"
+                      placeholder="Admin"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="login-field">
+                  <label htmlFor="login-last">Last name</label>
+                  <div className="login-input-wrap">
+                    <input
+                      id="login-last"
+                      type="text"
+                      placeholder="User"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!(view === 'create' && probe === 'invite') && (
               <>
-                <div className="modal-row">
-                  <div className="login-field">
-                    <label htmlFor="login-first">First name</label>
-                    <div className="login-input-wrap">
-                      <input
-                        id="login-first"
-                        type="text"
-                        placeholder="Admin"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="login-field">
-                    <label htmlFor="login-last">Last name</label>
-                    <div className="login-input-wrap">
-                      <input
-                        id="login-last"
-                        type="text"
-                        placeholder="User"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        required
-                      />
-                    </div>
+                <div className="login-field">
+                  <label htmlFor="login-email">Email</label>
+                  <div className="login-input-wrap">
+                    <input
+                      id="login-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
                   </div>
                 </div>
+
+                <div className="login-field">
+                  <label htmlFor="login-password">Password</label>
+                  <div className="login-input-wrap">
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder={view === 'create' ? 'At least 8 characters' : 'Enter your password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      minLength={view === 'create' ? 8 : undefined}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="login-eye-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {view === 'create' && (
+                  <div className="login-field">
+                    <label htmlFor="login-confirm">Confirm password</label>
+                    <div className="login-input-wrap">
+                      <input
+                        id="login-confirm"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Re-enter password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        minLength={8}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {view === 'login' && (
+                  <div className="login-options">
+                    <label className="login-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={remember}
+                        onChange={(e) => setRemember(e.target.checked)}
+                      />
+                      <span>Remember for 30 days</span>
+                    </label>
+                    <button type="button" className="login-forgot">Forgot password?</button>
+                  </div>
+                )}
               </>
-            )}
-
-            <div className="login-field">
-              <label htmlFor="login-email">Email</label>
-              <div className="login-input-wrap">
-                <input
-                  id="login-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="login-field">
-              <label htmlFor="login-password">Password</label>
-              <div className="login-input-wrap">
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={setupMode ? 'At least 8 characters' : 'Enter your password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={setupMode ? 8 : undefined}
-                  required
-                />
-                <button
-                  type="button"
-                  className="login-eye-btn"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            {setupMode && (
-              <div className="login-field">
-                <label htmlFor="login-confirm">Confirm password</label>
-                <div className="login-input-wrap">
-                  <input
-                    id="login-confirm"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Re-enter password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    minLength={8}
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            {!setupMode && (
-              <div className="login-options">
-                <label className="login-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
-                  <span>Remember for 30 days</span>
-                </label>
-                <button type="button" className="login-forgot">Forgot password?</button>
-              </div>
             )}
 
             {error && <p className="login-error">{error}</p>}
 
-            <button type="submit" className="login-submit" disabled={loading || !setupChecked}>
-              {loading || !setupChecked ? <Loader2 size={18} className="spin" /> : null}
-              {loading
-                ? setupMode ? 'Creating Admin…' : 'Signing in...'
-                : !setupChecked
-                  ? 'Checking…'
-                  : setupMode
-                    ? 'Create Admin account'
+            {view === 'create' && probe === 'invite' && (
+              <button type="button" className="login-submit" onClick={showLogin}>
+                Back to sign in
+              </button>
+            )}
+
+            {!(view === 'create' && probe === 'invite') && (
+              <button
+                type="submit"
+                className="login-submit"
+                disabled={loading || probe === 'checking' || (view === 'create' && createDisabled)}
+              >
+                {loading || (view === 'create' && probe === 'checking') ? <Loader2 size={18} className="spin" /> : null}
+                {loading
+                  ? view === 'create' ? 'Creating account…' : 'Signing in...'
+                  : view === 'create'
+                    ? probe === 'checking'
+                      ? 'Checking…'
+                      : isSetupCreate
+                        ? 'Create Admin account'
+                        : 'Create account'
                     : 'Sign in'}
-            </button>
+              </button>
+            )}
           </form>
 
-          {!setupMode && (
+          {view === 'login' && (
             <>
               <div className="login-divider"><span>or</span></div>
 
@@ -224,10 +284,26 @@ export default function Login() {
             </>
           )}
 
+          <div className="login-mode-switch">
+            {view === 'login' ? (
+              <>
+                Don&apos;t have an account?{' '}
+                <button type="button" onClick={showCreate}>Create an account</button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button type="button" onClick={showLogin}>Sign in</button>
+              </>
+            )}
+          </div>
+
           <p className="login-footer">
-            {setupMode
-              ? 'After creating Admin, add Staff A / Staff B from Members.'
-              : 'Accounts are created by an Admin in Members.'}
+            {view === 'create'
+              ? isSetupCreate
+                ? 'After creating Admin, add Staff A / Staff B from Members.'
+                : 'Self-serve signup is invite-only — your Admin adds you in Members.'
+              : 'First visit? Create the Admin account. Otherwise sign in.'}
           </p>
         </div>
       </div>
